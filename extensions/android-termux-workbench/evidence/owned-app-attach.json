@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "status": "PASS",
+  "endpoint": "127.0.0.1:27042",
+  "package": "com.mobileai.console",
+  "pid": "<ephemeral-pid>",
+  "binding": {
+    "path": "run/frida-node-runtime-17.23.3/build/frida_binding.node",
+    "bytes": 67212744,
+    "sha256": "e66b54b298fdb9c755f717d440b975f50929b653bde0daa1d6c559ab87b359de"
+  },
+  "process_enumeration": "PASS",
+  "attach": "PASS",
+  "script_load": "PASS",
+  "detach": "PASS",
+  "process_count": 367,
+  "enumerated_target": {
+    "pid": 7301,
+    "name": "AI 中枢"
+  },
+  "session_pid": "<ephemeral-pid>",
+  "rpc_wrapper_compatibility": "JSON_STRING_ENVELOPE_NORMALIZED",
+  "agent": {
+    "pid": "<ephemeral-pid>",
+    "arch": "arm64",
+    "platform": "linux",
+    "pointer_size": 8,
+    "page_size": 4096
+  }
+}

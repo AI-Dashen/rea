@@ -1,0 +1,113 @@
+diff --git a/src/android/JadxConfiguration.ts b/src/android/JadxConfiguration.ts
+index 8c9d293..f140b51 100644
+--- a/src/android/JadxConfiguration.ts
++++ b/src/android/JadxConfiguration.ts
+@@ -169,7 +169,12 @@ const requireEngineArchive = async (
+ };
+
+ const requireSupportedHost = (): void => {
+-  if (process.platform === "linux" || process.platform === "darwin") return;
++  if (
++    process.platform === "linux" ||
++    process.platform === "darwin" ||
++    (process.platform === "android" && process.arch === "arm64")
++  )
++    return;
+   if (process.platform === "win32" && process.arch === "x64") {
+     const loaded = systemWindowsNativeAuthority();
+     if (loaded.available && loaded.authority.inspection.protocolStdin === true)
+@@ -189,7 +194,7 @@ const requireSupportedHost = (): void => {
+   }
+   throw configurationFailure(
+     "unsupported_host",
+-    `Android JADX subprocess ownership is unsupported on ${process.platform}/${process.arch}; use Linux, macOS, or Windows x64 with its bundled native controls.`,
++    `JADX subprocess ownership is unsupported on ${process.platform}/${process.arch}; use Linux, macOS, Android ARM64, or Windows x64 with its bundled native controls.`,
+     { platform: process.platform },
+   );
+ };
+diff --git a/src/process/ProcessOwnership.identity.test.ts b/src/process/ProcessOwnership.identity.test.ts
+index 3d79b28..e44f87a 100644
+--- a/src/process/ProcessOwnership.identity.test.ts
++++ b/src/process/ProcessOwnership.identity.test.ts
+@@ -10,11 +10,12 @@ import {
+   parseLinuxProcessStartTime,
+ } from "./ProcessOwnershipObservation.js";
+
+-const itOnLinux = process.platform === "linux" ? it : it.skip;
++const itOnProcfs =
++  process.platform === "linux" || process.platform === "android" ? it : it.skip;
+
+-describe("Linux process start identities", () => {
+-  itOnLinux("reads Linux process start identities from proc stat", async () => {
+-    const host = createSystemProcessOwnershipHost("linux", {});
++describe("procfs process start identities", () => {
++  itOnProcfs("reads process start identities from proc stat", async () => {
++    const host = createSystemProcessOwnershipHost(process.platform, {});
+     expect(host.processIdentities).toBeDefined();
+     expect(host.captureBaseline).toBeDefined();
+     const observedProcess = {
+diff --git a/src/process/ProcessOwnershipObservation.ts b/src/process/ProcessOwnershipObservation.ts
+index 34edeae..9eb8873 100644
+--- a/src/process/ProcessOwnershipObservation.ts
++++ b/src/process/ProcessOwnershipObservation.ts
+@@ -192,6 +192,7 @@ export const createSystemProcessOwnershipHost = (
+     readonly darwinXcrun?: string;
+   } = {},
+ ): ProcessOwnershipHost => {
++  const procfs = platform === "linux" || platform === "android";
+   const darwinTokens =
+     platform === "darwin"
+       ? createDarwinProcessRunTokenReader(
+@@ -226,7 +227,7 @@ export const createSystemProcessOwnershipHost = (
+     ProcessOwnershipHost["processIdentities"]
+   > = async (processes, signal) => {
+     if (processes.length === 0) return new Map();
+-    if (platform === "linux")
++    if (procfs)
+       return new Map<number, ProcessIdentityObservation>(
+         await Promise.all(
+           processes.map(async ({ pid }) => {
+@@ -275,7 +276,7 @@ export const createSystemProcessOwnershipHost = (
+   const captureBaseline = async (
+     signal?: AbortSignal,
+   ): Promise<ProcessOwnershipBaseline> => {
+-    if (platform !== "linux" && darwinTokens === undefined) return [];
++    if (!procfs && darwinTokens === undefined) return [];
+     const processes = liveProcesses(await listProcesses(signal));
+     let identities = await processIdentities(processes, signal);
+     const unreadable = processes.filter(
+@@ -312,14 +313,14 @@ export const createSystemProcessOwnershipHost = (
+     platform,
+     prepare: async (signal) => {
+       await darwinTokens?.prepare(signal);
+-      if (platform === "linux") {
++      if (procfs) {
+         try {
+           const processes = await listProcesses(signal);
+           if (!processes.some(({ pid }) => pid === process.pid))
+             throw new Error("ps did not report REA's current process");
+         } catch (cause: unknown) {
+           if (isExpectedAbort(cause, signal)) throw cause;
+-          const reason = `Linux process ownership inspection requires a procps-compatible ps on REA's PATH before launching a child: ${errorMessage(cause)}`;
++          const reason = `Procfs process ownership inspection requires a procps-compatible ps on REA's PATH before launching a child: ${errorMessage(cause)}`;
+           throw new AnalysisCapabilityUnavailableError(
+             "process-ownership",
+             "prepare_owned_process",
+@@ -331,7 +332,7 @@ export const createSystemProcessOwnershipHost = (
+     },
+     listProcesses,
+     async environment(pid) {
+-      if (platform === "linux")
++      if (procfs)
+         return parseProcessEnvironment(
+           await readFile(`/proc/${pid}/environ`, "utf8"),
+         );
+@@ -380,7 +381,7 @@ export const createSystemProcessOwnershipHost = (
+         );
+       }
+     },
+-    ...(platform !== "linux" && darwinTokens === undefined
++    ...(!procfs && darwinTokens === undefined
+       ? {}
+       : {
+           processIdentities,

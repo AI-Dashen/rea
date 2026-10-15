@@ -1,0 +1,160 @@
+Subject: [PATCH] frida 17.23.3 subprojects: Termux Bionic compatibility
+
+diff --git a/subprojects/frida-core/compat/build.py b/subprojects/frida-core/compat/build.py
+index 611336c..2ce0631 100644
+--- a/subprojects/frida-core/compat/build.py
++++ b/subprojects/frida-core/compat/build.py
+@@ -516,9 +516,19 @@ def compile(privdir: Path, state: State):
+
+             host_machine = MachineSpec(state.host_os, group.arch, state.host_config, group.triplet)
+
+-            if state.glib_flavor == "upstream":
++            termux_native = os.environ.get("FRIDA_TERMUX_NATIVE") == "1"
++            if state.glib_flavor == "upstream" and not termux_native:
+                 allowed = None
++            elif termux_native and state.allowed_prebuilds is None:
++                # Meson may serialize this custom target before its setup
++                # environment is visible here. Keep the SDK bundles enabled,
++                # but never fall back to the unavailable prebuilt toolchain.
++                allowed = {"sdk:build", "sdk:host"}
+             else:
++                # Android native Termux builds cannot download Frida's
++                # unpublished Android toolchain bundle. Preserve the outer
++                # --without-prebuilds policy so nested compat builds reuse
++                # the project-local source-built toolchain instead.
+                 allowed = state.allowed_prebuilds
+
+             if state.glib_flavor == "upstream":
+diff --git a/subprojects/frida-core/lib/payload/libc-shim.c b/subprojects/frida-core/lib/payload/libc-shim.c
+index 78b9e7a..f41c46f 100644
+--- a/subprojects/frida-core/lib/payload/libc-shim.c
++++ b/subprojects/frida-core/lib/payload/libc-shim.c
+@@ -1511,6 +1511,7 @@ getline (char ** lineptr, size_t * n, FILE * stream)
+   return getdelim (lineptr, n, '\n', stream);
+ }
+
++#if !defined (FRIDA_TERMUX_NATIVE)
+ G_GNUC_INTERNAL FILE *
+ tmpfile (void)
+ {
+@@ -1534,6 +1535,7 @@ tmpfile (void)
+
+   return result;
+ }
++#endif
+
+ G_GNUC_INTERNAL int
+ putchar (int c)
+diff --git a/subprojects/frida-core/subprojects/frida-gum/gum/gumelfmodule.c b/subprojects/frida-core/subprojects/frida-gum/gum/gumelfmodule.c
+index 4035649..8b30a3d 100644
+--- a/subprojects/frida-core/subprojects/frida-gum/gum/gumelfmodule.c
++++ b/subprojects/frida-core/subprojects/frida-gum/gum/gumelfmodule.c
+@@ -14,11 +14,19 @@
+ # include <lzma.h>
+ #endif
+ #if defined (HAVE_ANDROID) && defined (HAVE_MINIZIP)
+-# include <minizip/mz.h>
+-# include <minizip/mz_strm.h>
+-# include <minizip/mz_strm_os.h>
+-# include <minizip/mz_zip.h>
+-# include <minizip/mz_zip_rw.h>
++# if __has_include (<minizip/mz.h>)
++#  include <minizip/mz.h>
++#  include <minizip/mz_strm.h>
++#  include <minizip/mz_strm_os.h>
++#  include <minizip/mz_zip.h>
++#  include <minizip/mz_zip_rw.h>
++# else
++#  include <mz.h>
++#  include <mz_strm.h>
++#  include <mz_strm_os.h>
++#  include <mz_zip.h>
++#  include <mz_zip_rw.h>
++# endif
+ #endif
+
+ #include <string.h>
+@@ -2734,11 +2742,19 @@ gum_maybe_extract_from_apk (const gchar * path,
+   file_path = tokens[1];
+   bare_file_path = file_path + 1;
+
++#if defined (MZ_VERSION_BUILD) && MZ_VERSION_BUILD >= 0x040000
++  zip_stream = mz_stream_os_create ();
++#else
+   mz_stream_os_create (&zip_stream);
++#endif
+   if (mz_stream_os_open (zip_stream, apk_path, MZ_OPEN_MODE_READ) != MZ_OK)
+     goto beach;
+
++#if defined (MZ_VERSION_BUILD) && MZ_VERSION_BUILD >= 0x040000
++  zip_reader = mz_zip_reader_create ();
++#else
+   mz_zip_reader_create (&zip_reader);
++#endif
+   if (mz_zip_reader_open (zip_reader, zip_stream) != MZ_OK)
+     goto beach;
+
+diff --git a/subprojects/frida-core/subprojects/frida-gum/meson.build b/subprojects/frida-core/subprojects/frida-gum/meson.build
+index fa16bae..7d76d02 100644
+--- a/subprojects/frida-core/subprojects/frida-gum/meson.build
++++ b/subprojects/frida-core/subprojects/frida-gum/meson.build
+@@ -593,15 +593,22 @@ else
+ endif
+
+ if host_os == 'android'
+-  minizip_dep = dependency('minizip', required: false, default_options: [
+-    'default_library=static',
+-    'zlib=enabled',
+-    'lzma=disabled',
+-  ])
++  # Termux packages minizip-ng alongside the legacy minizip API. Prefer the
++  # modern library used by Frida, while preserving the upstream fallback.
++  minizip_name = 'minizip-ng'
++  minizip_dep = dependency(minizip_name, required: false)
++  if not minizip_dep.found()
++    minizip_name = 'minizip'
++    minizip_dep = dependency(minizip_name, required: false, default_options: [
++      'default_library=static',
++      'zlib=enabled',
++      'lzma=disabled',
++    ])
++  endif
+   if minizip_dep.found()
+     cdata.set('HAVE_MINIZIP', 1)
+     extra_deps += [minizip_dep]
+-    extra_requires_private += ['minizip']
++    extra_requires_private += [minizip_name]
+   endif
+ endif
+
+diff --git a/subprojects/frida-core/subprojects/libnice/agent/interfaces.c b/subprojects/frida-core/subprojects/libnice/agent/interfaces.c
+index 7e8e5d9..622f4ec 100644
+--- a/subprojects/frida-core/subprojects/libnice/agent/interfaces.c
++++ b/subprojects/frida-core/subprojects/libnice/agent/interfaces.c
+@@ -66,6 +66,12 @@
+
+ #ifdef HAVE_GETIFADDRS
+  #include <ifaddrs.h>
++ #if defined (__ANDROID__) && __ANDROID_API__ < 24
++  /* Termux runs on API 24+ but Frida keeps its Android ABI target at 21.
++   * Its Bionic header exposes struct ifaddrs while hiding the declarations. */
++  int getifaddrs (struct ifaddrs ** list_ptr);
++  void freeifaddrs (struct ifaddrs * ptr);
++ #endif
+ #endif
+
+ #include <net/if.h>
+diff --git a/subprojects/json-glib/json-glib/meson.build b/subprojects/json-glib/json-glib/meson.build
+index 4a25d4b..e25c43b 100644
+--- a/subprojects/json-glib/json-glib/meson.build
++++ b/subprojects/json-glib/json-glib/meson.build
+@@ -129,7 +129,8 @@ endif
+
+ json_glib_dep = declare_dependency(
+   link_with: json_lib,
+-  include_directories: root_dir,
++  # Consumers need the build-directory copy of generated json-version.h.
++  include_directories: [root_dir, include_directories('.')],
+   dependencies: [gio_dep],
+   sources: [ json_enum_types_h, json_glib_gir ],
+ )

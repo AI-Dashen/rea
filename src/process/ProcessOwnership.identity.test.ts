@@ -10,11 +10,12 @@ import {
   parseLinuxProcessStartTime,
 } from "./ProcessOwnershipObservation.js";
 
-const itOnLinux = process.platform === "linux" ? it : it.skip;
+const itOnProcfs =
+  process.platform === "linux" || process.platform === "android" ? it : it.skip;
 
-describe("Linux process start identities", () => {
-  itOnLinux("reads Linux process start identities from proc stat", async () => {
-    const host = createSystemProcessOwnershipHost("linux", {});
+describe("procfs process start identities", () => {
+  itOnProcfs("reads process start identities from proc stat", async () => {
+    const host = createSystemProcessOwnershipHost(process.platform, {});
     expect(host.processIdentities).toBeDefined();
     expect(host.captureBaseline).toBeDefined();
     const observedProcess = {

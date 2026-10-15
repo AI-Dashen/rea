@@ -229,6 +229,7 @@ export const createSystemProcessOwnershipHost = (
     readonly compileTimeoutMs?: number;
   } = {},
 ): ProcessOwnershipHost => {
+  const procfs = platform === "linux" || platform === "android";
   const darwinModuleCachePath =
     options.darwinModuleCachePath ??
     hostEnvironment.REA_DARWIN_MODULE_CACHE_PATH;
@@ -280,7 +281,7 @@ export const createSystemProcessOwnershipHost = (
     ProcessOwnershipHost["processIdentities"]
   > = async (processes, signal) => {
     if (processes.length === 0) return new Map();
-    if (platform === "linux")
+    if (procfs)
       return new Map<number, ProcessIdentityObservation>(
         await Promise.all(
           processes.map(async ({ pid }) => {
@@ -329,7 +330,7 @@ export const createSystemProcessOwnershipHost = (
   const captureBaseline = async (
     signal?: AbortSignal,
   ): Promise<ProcessOwnershipBaseline> => {
-    if (platform !== "linux" && darwinTokens === undefined) return [];
+    if (!procfs && darwinTokens === undefined) return [];
     const processes = liveProcesses(await listProcesses(signal));
     let identities = await processIdentities(processes, signal);
     const unreadable = processes.filter(
@@ -366,14 +367,14 @@ export const createSystemProcessOwnershipHost = (
     platform,
     prepare: async (signal) => {
       await darwinTokens?.prepare(signal);
-      if (platform === "linux") {
+      if (procfs) {
         try {
           const processes = await listProcesses(signal);
           if (!processes.some(({ pid }) => pid === process.pid))
             throw new Error("ps did not report REA's current process");
         } catch (cause: unknown) {
           if (isExpectedAbort(cause, signal)) throw cause;
-          const reason = `Linux process ownership inspection requires a procps-compatible ps on REA's PATH before launching a child: ${errorMessage(cause)}`;
+          const reason = `Procfs process ownership inspection requires a procps-compatible ps on REA's PATH before launching a child: ${errorMessage(cause)}`;
           throw new AnalysisCapabilityUnavailableError(
             "process-ownership",
             "prepare_owned_process",
@@ -386,7 +387,7 @@ export const createSystemProcessOwnershipHost = (
     listProcesses,
     async environment(pid, signal) {
       signal?.throwIfAborted();
-      if (platform === "linux")
+      if (procfs)
         return parseProcessEnvironment(
           await readFile(`/proc/${pid}/environ`, { encoding: "utf8", signal }),
         );
@@ -440,7 +441,7 @@ export const createSystemProcessOwnershipHost = (
         );
       }
     },
-    ...(platform !== "linux" && darwinTokens === undefined
+    ...(!procfs && darwinTokens === undefined
       ? {}
       : {
           processIdentities,

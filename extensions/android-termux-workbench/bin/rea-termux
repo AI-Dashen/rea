@@ -1,0 +1,27 @@
+#!/data/data/com.termux/files/usr/bin/sh
+set -eu
+
+project_root="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+source_root="${REA_SOURCE_ROOT:-$(CDPATH= cd -- "$project_root/../.." && pwd)}"
+runtime_root="$project_root/run/rea-termux-android-provider"
+jadx_jar="${REA_JADX_MCP_JAR:-$project_root/run/deps/jadx-headless-mcp.jar}"
+
+if [ ! -f "$source_root/dist/main.js" ]; then
+  echo "REA_TERMUX_6_5_BUILD_MISSING: expected the pinned Android compatibility build" >&2
+  exit 2
+fi
+if [ ! -f "$jadx_jar" ]; then
+  echo "REA_JADX_ENGINE_MISSING: expected the verified 0.7.1 engine archive" >&2
+  exit 2
+fi
+
+mkdir -p "$runtime_root/home" "$runtime_root/tmp"
+export HOME="$runtime_root/home"
+export TMPDIR="$runtime_root/tmp"
+export JAVA_HOME="/data/data/com.termux/files/usr/lib/jvm/java-21-openjdk"
+export REA_JADX_MCP_JAR="$jadx_jar"
+export REA_JADX_HEAP_MIB="${REA_JADX_HEAP_MIB:-768}"
+export REA_JADX_ACTIVE_PROCESSOR_COUNT="1"
+export REA_MCP_INPUT_SCHEMA_PROFILE="${REA_MCP_INPUT_SCHEMA_PROFILE:-compact}"
+
+exec node "$source_root/scripts/rea.mjs" "$@"

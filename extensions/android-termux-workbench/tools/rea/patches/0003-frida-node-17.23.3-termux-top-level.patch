@@ -1,0 +1,35 @@
+Subject: [PATCH] frida-node 17.23.3: enable native Termux Android build
+
+--- a/releng/env_android.py
++++ b/releng/env_android.py
+@@ -69,8 +69,14 @@
+         "-ffunction-sections",
+         "-fdata-sections",
+     ]
++    if environ.get("FRIDA_TERMUX_NATIVE") == "1":
++        c_like_flags += ["-DFRIDA_TERMUX_NATIVE=1"]
+     cxx_like_flags = []
+-    cxx_link_flags = [
++    # Official Android cross-builds statically link libc++; a native Termux
++    # build already provides libc++_shared.so and does not ship the NDK static
++    # libc++ archive. Keep upstream behavior unless the explicit project-local
++    # compatibility flag is set.
++    cxx_link_flags = [] if environ.get("FRIDA_TERMUX_NATIVE") == "1" else [
+         "-static-libstdc++",
+     ]
+     linker_flags = [
+--- a/scripts/fetch-abi-bits.py
++++ b/scripts/fetch-abi-bits.py
+@@ -160,6 +160,12 @@
+                                  "target_arch": gyp_arch,
+                                  "MSVS_VERSION": "auto",
+                                  "node_engine": "v8",
++                                 # Node's Android common.gypi expects this
++                                 # variable even though this helper only reads
++                                 # preprocessor definitions. In a native
++                                 # Termux build the NDK compatibility root is
++                                 # supplied explicitly by the caller.
++                                 "android_ndk_path": os.environ.get("ANDROID_NDK_ROOT", ""),
+                              },
+                              includes=[
+                                  node_gypdir / "common.gypi",

@@ -1,0 +1,37 @@
+#!/data/data/com.termux/files/usr/bin/bash
+set -euo pipefail
+
+EXT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$EXT_ROOT"
+
+python tools/rea/make-samples.py
+
+if [[ -z "${REA_JADX_JAR:-}" ]]; then
+  for candidate in     /data/data/com.termux/files/usr/share/java/jadx-1.5.6-all.jar     "$EXT_ROOT/../../run/rea-3a0be4d8/jadx-local/data/data/com.termux/files/usr/share/java/jadx-1.5.6-all.jar"
+  do
+    if [[ -f "$candidate" ]]; then
+      export REA_JADX_JAR="$candidate"
+      break
+    fi
+  done
+fi
+
+tests=(
+  test-android-container.py
+  test-android-intelligence.py
+  test-android-package-profile.py
+  test-android-resources.py
+  test-android-signature.py
+  test-android-workbench.py
+  test-dex-layer.py
+  test-dynamic-evidence.py
+  test-dynamic-session-broker.py
+  test-evidence-contract.py
+  test-evidence-contract-v2.py
+  test-flute-container.py
+)
+for test_file in "${tests[@]}"; do
+  python "tools/rea/$test_file"
+done
+
+echo "PASS: 54 portable Android Workbench tests"

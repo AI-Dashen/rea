@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+run/
+build/
+dist/
+*.apk
+*.aab
+*.apks
+*.dex
+*.so
+*.node
+*.jar
+*.log
+*.sqlite3
+*.db

@@ -309,7 +309,12 @@ const requireEngineArchive = async (
 };
 
 const requireSupportedHost = (): void => {
-  if (process.platform === "linux" || process.platform === "darwin") return;
+  if (
+    process.platform === "linux" ||
+    process.platform === "darwin" ||
+    (process.platform === "android" && process.arch === "arm64")
+  )
+    return;
   if (process.platform === "win32" && process.arch === "x64") {
     const loaded = systemWindowsNativeAuthority();
     if (loaded.available) {
@@ -355,7 +360,7 @@ const requireSupportedHost = (): void => {
   }
   throw configurationFailure(
     "unsupported_host",
-    `Android JADX subprocess ownership is unsupported on ${process.platform}/${process.arch}; use Linux, macOS, or Windows x64 with its bundled native controls.`,
+    `JADX subprocess ownership is unsupported on ${process.platform}/${process.arch}; use Linux, macOS, Android ARM64, or Windows x64 with its bundled native controls.`,
     { platform: process.platform },
     "unsupported_host",
   );
