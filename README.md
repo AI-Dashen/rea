@@ -1,5 +1,34 @@
 <div align="center">
 
+# Android/Termux 逆向分析工作台增强版 · rea
+
+**将大体积 APK 索引、按需反编译与受控 Frida 挂载带入 Android/Termux ARM64 环境。**
+
+</div>
+
+本项目派生自 REA 上游并保留 MIT 许可。针对移动端大包分析痛点，在专用分支中拓展了 Android/Termux ARM64 运行适配，引入 SQLite 索引加速、签名与资源分析、版本差异对比及 Evidence Graph 证据链追踪。
+
+## 值得关注的技术
+
+- Android/Termux ARM64 本地适配与大体积 APK SQLite 索引及按需反编译
+- 支持 APK 签名/资源解析、跨版本 Diff 对比与 Evidence Graph 建模
+- 支持临时 Frida 受控 attach 动态辅助分析
+
+## 当前进度
+
+Android/Termux 增强功能位于 android-termux-workbench 分支；动态 Broker 的生产适配仍待接通，重复热进程附加稳定性仍有限制。
+
+## 手机增强版入口
+
+[查看 Android/Termux 分支](https://github.com/AI-Dashen/rea/tree/android-termux-workbench) · [安装、命令与能力证据](https://github.com/AI-Dashen/rea/blob/android-termux-workbench/extensions/android-termux-workbench/README.md)
+
+本仓库由 [morluto/rea](https://github.com/morluto/rea) 派生；上游通用能力与本项目手机增强分别维护，原始 MIT 许可与第三方声明保留。`main` 保留通用代码，手机增强位于上述分支。
+
+<details>
+<summary><strong>展开完整使用指南、技术说明与历史记录</strong></summary>
+
+<div align="center">
+
 **English** · [简体中文](docs/readme/README_zh.md) · [繁體中文](docs/readme/README_zh-TW.md) · [日本語](docs/readme/README_ja.md) · [한국어](docs/readme/README_ko.md) · [Türkçe](docs/readme/README_tr.md) · [Русский](docs/readme/README_ru.md) · [Tiếng Việt](docs/readme/README_vi.md) · [ไทย](docs/readme/README_th.md) · [Deutsch](docs/readme/README_de.md) · [Español](docs/readme/README_es.md) · [Français](docs/readme/README_fr.md) · [Українська](docs/readme/README_uk.md) · [Polski](docs/readme/README_pl.md) · [Português (Brasil)](docs/readme/README_pt-BR.md) · [العربية](docs/readme/README_ar.md) · [فارسی](docs/readme/README_fa.md) · [Bahasa Indonesia](docs/readme/README_id.md) · [Italiano](docs/readme/README_it.md)
 · [Ελληνικά](docs/readme/README_el.md)
 
@@ -392,3 +421,6 @@ demos remain subject to vendor terms, including user, feature, automation, and
 output sharing restrictions. Cracked copies, stolen keys, unauthorized key
 sharing, and bypassing license restrictions are not authorized. This guidance
 does not amend MIT or third-party licenses.
+
+
+</details>
