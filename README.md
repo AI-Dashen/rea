@@ -1,6 +1,6 @@
 <div align="center">
 
-# Android/Termux 逆向分析工作台增强版 · rea
+# 逆向分析工坊｜Reverse Engineering Workbench
 
 **将大体积 APK 索引、按需反编译与受控 Frida 挂载带入 Android/Termux ARM64 环境。**
 
